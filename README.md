@@ -113,7 +113,7 @@ http://127.0.0.1:5000
 ## 🛠️ Technology Stack
 
 - **Backend**: Python 3, [Flask](https://flask.palletsprojects.com/)
-- **AI / LLM**: [Google GenAI SDK (`google-genai`)](https://github.com/googleapis/python-genai) with `gemini-flash-latest` / `gemini-3.8-flash`
+- **AI / LLM**: [Google GenAI SDK (`google-genai`)](https://github.com/googleapis/python-genai) with `gemini-3.5-flash-lite`, `gemini-flash-latest`, and `gemini-3.8-flash`
 - **Configuration**: [python-dotenv](https://github.com/theskumar/python-dotenv)
 - **Frontend**: Vanilla JavaScript (ES6+), Modern HTML5, Custom CSS3 with Flexbox & CSS Grid
 - **Fonts**: Fraunces & Plus Jakarta Sans via Google Fonts

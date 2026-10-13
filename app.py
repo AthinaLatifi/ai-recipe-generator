@@ -34,8 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Model cascade: Primary model is gemini-flash-latest, with gemini-3.8-flash as fallback
+# Model cascade: gemini-3.5-flash-lite first (fastest), then gemini-flash-latest, then gemini-3.8-flash
 CANDIDATE_MODELS = [
+    "gemini-3.5-flash-lite",
     "gemini-flash-latest",
     "gemini-3.8-flash"
 ]
@@ -69,6 +70,9 @@ def get_api_key():
 def get_gemini_client():
     """
     Initializes and returns the Google GenAI client using the configured key.
+    Configures a 30-second request timeout and 1 single attempt (no slow internal retry loops)
+    via types.HttpOptions and types.HttpRetryOptions, so unresponsive models fail fast
+    and fallback models are immediately attempted without blocking Gunicorn workers.
     Raises ValueError if the key is not properly set.
     """
     api_key = get_api_key()
@@ -77,7 +81,13 @@ def get_gemini_client():
             "Gemini API key is not configured. Please open the '.env' file in your project directory "
             "and replace 'PASTE_YOUR_KEY_HERE' with your personal Gemini API key from Google AI Studio."
         )
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=30000,
+            retry_options=types.HttpRetryOptions(attempts=1)
+        )
+    )
 
 
 def build_recipe_prompt(ingredients, servings, dietary, max_time):
@@ -114,8 +124,8 @@ Core Guidelines:
 3. You may supplement with common pantry staples (salt, pepper, water, basic cooking oil) and a few missing ingredients.
 4. Accurately calculate and scale all ingredient amounts for exactly {servings} serving(s).
 5. Identify any missing ingredients that the user will need to buy or find in their cupboard as a separate 'missing_ingredients' list.
-6. Provide clear, numbered, easy-to-follow cooking instructions.
-7. Include an expert Chef's Tip for each recipe to elevate the dish.
+6. Provide concise, numbered, easy-to-follow cooking instructions: strictly 3 to 5 clear, brief steps per recipe.
+7. Keep descriptions punchy (1-2 sentences) and keep chef tips brief (1 sentence) for fast generation.
 
 Output Requirements:
 You MUST respond with valid JSON strictly adhering to the following schema:
@@ -125,7 +135,7 @@ You MUST respond with valid JSON strictly adhering to the following schema:
       "id": "recipe_1",
       "name": "Creative Recipe Name",
       "tagline": "A punchy, delicious one-sentence hook",
-      "description": "2-3 sentences explaining the dish, taste profile, and why it works so well.",
+      "description": "1-2 brief sentences explaining the dish and taste profile.",
       "cooking_time_minutes": 25,
       "cooking_time_formatted": "25 mins",
       "difficulty": "Easy",
@@ -152,10 +162,10 @@ You MUST respond with valid JSON strictly adhering to the following schema:
         {{
           "step": 1,
           "title": "Short Step Title",
-          "instruction": "Detailed, encouraging step-by-step cooking instruction."
+          "instruction": "Brief, clear cooking step instruction."
         }}
       ],
-      "chef_tip": "A professional culinary tip to take this dish to the next level."
+      "chef_tip": "A quick one-sentence culinary tip."
     }}
   ]
 }}
@@ -163,6 +173,28 @@ You MUST respond with valid JSON strictly adhering to the following schema:
 Ensure all numbers are realistic and the recipes are delicious, safe, and coherent. Do not include markdown or commentary outside the JSON.
 """
     return prompt
+
+
+def get_model_config(model_name: str):
+    """
+    Returns GenerateContentConfig tailored for the model.
+    Disables/minimizes thinking (thinking_budget=0) on models that support it
+    to ensure fast generation times.
+    """
+    # gemini-3.5-flash-lite does not support thinking_config
+    thinking_cfg = None
+    if "lite" not in model_name.lower():
+        thinking_cfg = types.ThinkingConfig(thinking_budget=0)
+
+    return types.GenerateContentConfig(
+        response_mime_type="application/json",
+        temperature=0.7,
+        thinking_config=thinking_cfg,
+        system_instruction=(
+            "You are an expert chef assistant. Always respond strictly in valid JSON "
+            "matching the requested recipe schema. Keep instructions concise and practical."
+        )
+    )
 
 
 def clean_and_parse_json(raw_text):
@@ -277,23 +309,14 @@ def generate_recipes():
     prompt = build_recipe_prompt(ingredients, servings, dietary, max_time)
     logger.info("Requesting recipes from Gemini for %d ingredients...", len(ingredients))
 
-    # Configure Gemini structured JSON generation
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        temperature=0.7,  # Good balance of culinary creativity and consistency
-        system_instruction=(
-            "You are an expert chef assistant. Always respond strictly in valid JSON "
-            "matching the requested recipe schema."
-        )
-    )
-
     last_error = None
     response_data = None
 
-    # Try models in order (primary: gemini-flash-latest, fallback: gemini-3.8-flash)
+    # Try models in order (primary: gemini-3.5-flash-lite, fallbacks: gemini-flash-latest, gemini-3.8-flash)
     for model_name in CANDIDATE_MODELS:
         try:
             logger.info("Attempting generation with model '%s'...", model_name)
+            config = get_model_config(model_name)
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
@@ -311,21 +334,14 @@ def generate_recipes():
             safe_print(f"{err_msg}\n", flush=True)
             logger.warning("Model '%s' failed with APIError: %s", model_name, err_msg)
             # If the error is an invalid API key, no need to retry with other models
-            if "API_KEY_INVALID" in err_msg or "INVALID_ARGUMENT" in err_msg:
+            if "API_KEY_INVALID" in err_msg:
                 return jsonify({
                     "error": "Invalid API Key",
                     "message": "The Gemini API key in your .env file appears to be invalid. Please verify it on Google AI Studio.",
                     "detail": err_msg,
                     "type": "auth_error"
                 }), 401
-            # If quota exceeded, give clear message
-            if "RESOURCE_EXHAUSTED" in err_msg or "429" in err_msg:
-                return jsonify({
-                    "error": "Rate Limit Reached",
-                    "message": "Gemini API quota exceeded or rate limited. Please wait a moment and try again.",
-                    "detail": err_msg,
-                    "type": "rate_limit_error"
-                }), 429
+            # For timeouts, 503 high demand, 429 quota, etc., immediately try the next model!
             continue
         except (json.JSONDecodeError, ValueError) as parse_err:
             last_error = parse_err

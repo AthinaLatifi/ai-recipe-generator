@@ -346,10 +346,33 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      // Safely inspect response content-type to handle non-JSON or HTML gateway errors (e.g. 502/504)
+      const contentType = response.headers.get("content-type") || "";
+      let data = null;
+
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          console.warn("Could not parse JSON response:", jsonErr);
+        }
+      } else {
+        const rawText = await response.text();
+        console.warn("Server returned non-JSON response:", rawText.slice(0, 300));
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || "Failed to generate recipes.");
+        if (response.status === 504 || response.status === 502) {
+          throw new Error("The recipe service took too long to respond (server timeout). Please try again in a moment.");
+        }
+        if (data && (data.message || data.error)) {
+          throw new Error(data.message || data.error);
+        }
+        throw new Error(`The server encountered an issue (${response.status}: ${response.statusText || 'Service issue'}). Please try again.`);
+      }
+
+      if (!data) {
+        throw new Error("Received an unexpected response from the server. Please try again.");
       }
 
       if (!data.recipes || data.recipes.length === 0) {
@@ -361,10 +384,12 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("3 delicious recipes ready!");
     } catch (err) {
       console.error("Recipe generation error:", err);
-      showError(
-        "Chef Hiccup",
-        err.message || "Something went wrong while contacting Gemini. Please ensure your API key in .env is valid."
-      );
+      let userMessage = err.message || "Something went wrong while contacting Gemini.";
+      // Clean up any remaining technical JSON parse errors into user-friendly text
+      if (userMessage.includes("Unexpected token") || userMessage.includes("JSON")) {
+        userMessage = "The server returned an unexpected response. Please try again in a moment.";
+      }
+      showError("Chef Hiccup", userMessage);
     } finally {
       stopLoading();
     }
