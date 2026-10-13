@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Recipe Generator — Turn Your Pantry Into Delicious Meals</title>
+  
+  <!-- Google Fonts: Warm display serif for culinary charm + clean modern sans for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20style=%22font-size:32px%22><text y=%2226%22 font-size=%2226%22>🍳</text></svg>">
+</head>
+<body>
+
+  <!-- Top Announcement Banner (Shown when API key is missing or needs setup) -->
+  <div id="apiKeyBanner" class="banner banner-warning hidden" role="alert">
+    <div class="banner-content">
+      <span class="banner-icon">🔑</span>
+      <div class="banner-text">
+        <strong>Setup Required:</strong> Please add your Gemini API key in the <code>.env</code> file (replace <code>PASTE_YOUR_KEY_HERE</code>) and restart Flask.
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="banner-link">Get a free key at Google AI Studio &rarr;</a>
+      </div>
+      <button type="button" class="banner-close" id="closeBannerBtn" aria-label="Dismiss banner">&times;</button>
+    </div>
+  </div>
+
+  <!-- Header / Navigation Bar -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon-wrapper">
+          <span class="brand-icon">🍳</span>
+        </div>
+        <div>
+          <h1 class="brand-title">AI Recipe Generator</h1>
+          <p class="brand-subtitle">Cook incredible meals with ingredients already in your kitchen</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="pill pill-subtle">
+          <span class="status-dot"></span> Powered by Gemini
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Content -->
+  <main class="main-container">
+    
+    <!-- Hero / Intro Card -->
+    <section class="generator-panel card">
+      <div class="card-header">
+        <h2 class="section-title">What's in your kitchen today?</h2>
+        <p class="section-desc">Type your available ingredients or click the common staples below. Customize your preferences, and Gemini Chef will craft 3 custom recipes!</p>
+      </div>
+
+      <!-- Ingredient Tag Input Section -->
+      <div class="form-group">
+        <label for="ingredientInput" class="form-label">
+          <span>Your Ingredients</span>
+          <span class="tag-counter" id="tagCounter">0 added</span>
+        </label>
+        
+        <div class="tags-input-container" id="tagsContainer">
+          <!-- Rendered Ingredient Tag Chips will go here -->
+          <div class="tags-list" id="tagsList"></div>
+          
+          <div class="input-inline-wrap">
+            <input 
+              type="text" 
+              id="ingredientInput" 
+              class="tag-input" 
+              placeholder="e.g. Chicken breast, garlic, rice..." 
+              autocomplete="off"
+            >
+            <button type="button" id="addTagBtn" class="btn btn-secondary btn-sm">
+              <span class="btn-icon">+</span> Add
+            </button>
+          </div>
+        </div>
+        <p class="input-hint">Press <kbd>Enter</kbd> or type a comma to quickly add an ingredient. Click a tag to remove it.</p>
+
+        <!-- Quick-Add Pantry Staples -->
+        <div class="quick-staples">
+          <span class="quick-staples-label">Quick add staples:</span>
+          <div class="staple-pills" id="staplePills">
+            <button type="button" class="staple-pill" data-name="Garlic">🧄 Garlic</button>
+            <button type="button" class="staple-pill" data-name="Onion">🧅 Onion</button>
+            <button type="button" class="staple-pill" data-name="Olive oil">🫒 Olive oil</button>
+            <button type="button" class="staple-pill" data-name="Eggs">🥚 Eggs</button>
+            <button type="button" class="staple-pill" data-name="Rice">🍚 Rice</button>
+            <button type="button" class="staple-pill" data-name="Pasta">🍝 Pasta</button>
+            <button type="button" class="staple-pill" data-name="Tomatoes">🍅 Tomatoes</button>
+            <button type="button" class="staple-pill" data-name="Cheese">🧀 Cheese</button>
+            <button type="button" class="staple-pill" data-name="Chicken">🍗 Chicken</button>
+            <button type="button" class="staple-pill" data-name="Butter">🧈 Butter</button>
+            <button type="button" class="staple-pill" data-name="Potatoes">🥔 Potatoes</button>
+            <button type="button" class="staple-pill" data-name="Soy sauce">🥢 Soy sauce</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe Customization Options Grid -->
+      <div class="options-grid">
+        
+        <!-- Option 1: Number of Servings -->
+        <div class="option-box">
+          <label class="form-label" for="servingsInput">
+            <span>👥 Servings</span>
+          </label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" id="decreaseServings" aria-label="Decrease servings">&minus;</button>
+            <input type="number" id="servingsInput" class="stepper-input" value="2" min="1" max="16" readonly>
+            <button type="button" class="stepper-btn" id="increaseServings" aria-label="Increase servings">&plus;</button>
+          </div>
+          <div class="quick-servings">
+            <button type="button" class="quick-serv-btn" data-serv="1">1 person</button>
+            <button type="button" class="quick-serv-btn active" data-serv="2">2 people</button>
+            <button type="button" class="quick-serv-btn" data-serv="4">4 people</button>
+            <button type="button" class="quick-serv-btn" data-serv="6">Family (6)</button>
+          </div>
+        </div>
+
+        <!-- Option 2: Dietary Preferences -->
+        <div class="option-box">
+          <label class="form-label">
+            <span>🥗 Dietary Preference</span>
+          </label>
+          <div class="dietary-selector" id="dietarySelector">
+            <button type="button" class="diet-btn active" data-diet="none">
+              <span class="diet-icon">🍽️</span> None
+            </button>
+            <button type="button" class="diet-btn" data-diet="vegetarian">
+              <span class="diet-icon">🥕</span> Vegetarian
+            </button>
+            <button type="button" class="diet-btn" data-diet="vegan">
+              <span class="diet-icon">🌱</span> Vegan
+            </button>
+            <button type="button" class="diet-btn" data-diet="gluten-free">
+              <span class="diet-icon">🌾</span> Gluten-Free
+            </button>
+          </div>
+        </div>
+
+        <!-- Option 3: Max Cooking Time -->
+        <div class="option-box">
+          <label class="form-label">
+            <span>⏱️ Max Cooking Time</span>
+          </label>
+          <div class="time-selector" id="timeSelector">
+            <button type="button" class="time-btn" data-time="15">
+              <span class="time-tag">⚡ 15 min</span>
+              <small>Speedy</small>
+            </button>
+            <button type="button" class="time-btn active" data-time="30">
+              <span class="time-tag">⏱️ 30 min</span>
+              <small>Standard</small>
+            </button>
+            <button type="button" class="time-btn" data-time="45">
+              <span class="time-tag">🍲 45 min</span>
+              <small>Comfort</small>
+            </button>
+            <button type="button" class="time-btn" data-time="60">
+              <span class="time-tag">⏳ 60 min</span>
+              <small>Slow roast</small>
+            </button>
+            <button type="button" class="time-btn" data-time="any">
+              <span class="time-tag">✨ Any</span>
+              <small>No rush</small>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Action Row -->
+      <div class="action-footer">
+        <button type="button" id="clearAllTagsBtn" class="btn btn-ghost" title="Clear all tags">
+          🗑️ Clear all
+        </button>
+        <button type="button" id="generateBtn" class="btn btn-primary btn-lg">
+          <span class="btn-sparkle">✨</span> Generate 3 Chef Recipes
+        </button>
+      </div>
+
+      <!-- Inline Friendly Error Alert -->
+      <div id="errorAlert" class="alert alert-error hidden" role="alert">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-body">
+          <h4 class="alert-title" id="errorTitle">Oops! Something went wrong</h4>
+          <p class="alert-message" id="errorMessage">Please check your inputs and try again.</p>
+          <div class="alert-action" id="errorActionContainer">
+            <button type="button" id="retryBtn" class="btn btn-sm btn-secondary">Try Again</button>
+          </div>
+        </div>
+        <button type="button" class="alert-dismiss" id="dismissAlertBtn" aria-label="Close error">&times;</button>
+      </div>
+    </section>
+
+    <!-- Loading Animation Section -->
+    <section id="loadingSection" class="loading-container hidden" aria-live="polite">
+      <div class="loading-card card">
+        <div class="cooking-animation">
+          <div class="steam-container">
+            <div class="steam steam-1"></div>
+            <div class="steam steam-2"></div>
+            <div class="steam steam-3"></div>
+          </div>
+          <div class="cooking-pot">
+            <div class="pot-lid"></div>
+            <div class="pot-body">
+              <div class="pot-bubbles">
+                <span class="bubble b1"></span>
+                <span class="bubble b2"></span>
+                <span class="bubble b3"></span>
+              </div>
+            </div>
+            <div class="pot-flame">
+              <span class="flame f1"></span>
+              <span class="flame f2"></span>
+              <span class="flame f3"></span>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="loading-title">The Chef is Cooking Up Ideas...</h3>
+        <p class="loading-phrase" id="loadingPhrase">Taking stock of your pantry staples...</p>
+        
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar-indeterminate"></div>
+        </div>
+
+        <p class="loading-hint">Gemini is creating 3 balanced recipes scaled to your exact servings.</p>
+      </div>
+    </section>
+
+    <!-- Recipe Results Section -->
+    <section id="resultsSection" class="results-container hidden">
+      <div class="results-header">
+        <div>
+          <span class="pill pill-accent">👨‍🍳 Fresh from the Kitchen</span>
+          <h2 class="results-title">3 Handpicked Recipes for You</h2>
+          <p class="results-subtitle" id="resultsSummaryText">Tailored to your ingredients and preferences.</p>
+        </div>
+        <div class="results-actions">
+          <button type="button" id="regenerateBtn" class="btn btn-secondary">
+            🔄 New Ideas
+          </button>
+          <button type="button" id="editIngredientsBtn" class="btn btn-ghost">
+            ✏️ Modify Ingredients
+          </button>
+        </div>
+      </div>
+
+      <!-- Cards Grid -->
+      <div class="recipes-grid" id="recipesGrid">
+        <!-- Recipe cards dynamically injected by JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <p>AI Recipe Generator &bull; Built with Flask &amp; Google Gemini API</p>
+      <p class="footer-subtext">Cook sustainably &bull; Reduce food waste &bull; Savor every meal</p>
+    </div>
+  </footer>
+
+  <!-- Toast Notification (for copy actions, etc.) -->
+  <div id="toastNotification" class="toast hidden" role="status" aria-live="polite">
+    <span class="toast-icon" id="toastIcon">📋</span>
+    <span class="toast-message" id="toastMessage">Recipe copied to clipboard!</span>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
