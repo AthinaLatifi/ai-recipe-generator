@@ -12,8 +12,22 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
 # IDE and OS files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Terraform – never commit state files or sensitive variable values
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/*.tfplan
+terraform/crash.log

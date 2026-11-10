@@ -1,0 +1,13 @@
+# terraform/terraform.tfvars.example
+# ==============================================================
+# EXAMPLE values – copy this file to terraform.tfvars and fill
+# in your real values. terraform.tfvars is git-ignored and must
+# NEVER be committed to version control.
+# ==============================================================
+
+aws_region       = "us-east-1"
+app_name         = "ai-recipe-generator"
+environment      = "production"
+instance_type    = "t3.micro"       # or t3.small, t3.medium for more traffic
+key_pair_name    = "my-ec2-keypair" # name of your key pair in AWS Console
+ssh_allowed_cidr = "YOUR_IP/32"     # e.g. "203.0.113.42/32" – replace with your IP!

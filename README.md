@@ -7,6 +7,8 @@ A modern, responsive web application built with **Python Flask** and the officia
 ## ✨ Features
 
 - **Interactive Ingredient Tags**: Type what you have at home (e.g., chicken, garlic, rice) or click common pantry staples. Easily add and remove tags.
+- **Fridge Photo Scanner (Gemini Vision)**: Snap or upload a photo of your fridge, pantry, or countertop. Gemini Vision identifies the ingredients automatically with interactive selection chips so you don't have to type them in.
+- **Save Favorite Recipes**: Save any recipe with one click to keep your personal cookbook, stored in a local SQLite database (`recipes.db`). Access saved favorites anytime from the header button, filter them with instant search, and remove or print them whenever you like.
 - **Custom Meal Options**:
   - **Servings**: Interactive stepper (1 to 16 people) with instant ingredient scaling.
   - **Dietary Preferences**: None, Vegetarian, Vegan, Gluten-Free.
@@ -113,6 +115,7 @@ http://127.0.0.1:5000
 ## 🛠️ Technology Stack
 
 - **Backend**: Python 3, [Flask](https://flask.palletsprojects.com/)
+- **Database**: SQLite (`recipes.db`) for storing saved favorite recipes
 - **AI / LLM**: [Google GenAI SDK (`google-genai`)](https://github.com/googleapis/python-genai) with `gemini-3.5-flash-lite`, `gemini-flash-latest`, and `gemini-3.8-flash`
 - **Configuration**: [python-dotenv](https://github.com/theskumar/python-dotenv)
 - **Frontend**: Vanilla JavaScript (ES6+), Modern HTML5, Custom CSS3 with Flexbox & CSS Grid

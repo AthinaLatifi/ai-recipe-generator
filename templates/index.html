@@ -41,6 +41,11 @@
         </div>
       </div>
       <div class="header-badges">
+        <button type="button" id="openFavoritesBtn" class="btn btn-secondary btn-sm favorites-header-btn" title="View your saved favorite recipes">
+          <span class="fav-icon">❤️</span>
+          <span class="fav-text">Favorites</span>
+          <span class="favorites-badge" id="favoritesCountBadge">0</span>
+        </button>
         <span class="pill pill-subtle">
           <span class="status-dot"></span> Powered by Gemini
         </span>
@@ -60,10 +65,18 @@
 
       <!-- Ingredient Tag Input Section -->
       <div class="form-group">
-        <label for="ingredientInput" class="form-label">
-          <span>Your Ingredients</span>
-          <span class="tag-counter" id="tagCounter">0 added</span>
-        </label>
+        <div class="form-label-header">
+          <label for="ingredientInput" class="form-label">
+            <span>Your Ingredients</span>
+            <span class="tag-counter" id="tagCounter">0 added</span>
+          </label>
+          <div class="fridge-photo-action">
+            <input type="file" id="fridgePhotoInput" accept="image/jpeg,image/png,image/webp,image/heic,image/gif" capture="environment" class="hidden">
+            <button type="button" id="scanFridgeBtn" class="btn btn-secondary btn-sm scan-fridge-btn" title="Snap or upload a photo of your fridge, pantry, or ingredients">
+              <span class="btn-icon">📸</span> <strong>Scan Fridge Photo</strong>
+            </button>
+          </div>
+        </div>
         
         <div class="tags-input-container" id="tagsContainer">
           <!-- Rendered Ingredient Tag Chips will go here -->
@@ -182,9 +195,14 @@
         <button type="button" id="clearAllTagsBtn" class="btn btn-ghost" title="Clear all tags">
           🗑️ Clear all
         </button>
-        <button type="button" id="generateBtn" class="btn btn-primary btn-lg">
-          <span class="btn-sparkle">✨</span> Generate 3 Chef Recipes
-        </button>
+        <div class="generate-buttons-group">
+          <button type="button" id="generateBtn" class="btn btn-primary btn-lg" title="Generate 3 standalone creative recipe ideas">
+            <span class="btn-sparkle">✨</span> Generate 3 Ideas
+          </button>
+          <button type="button" id="generateMealPlanBtn" class="btn btn-accent btn-lg" title="Generate a waste-minimizing 7-day meal plan with shared shopping list">
+            <span class="btn-icon">📅</span> 7-Day Meal Plan
+          </button>
+        </div>
       </div>
 
       <!-- Inline Friendly Error Alert -->
@@ -262,6 +280,52 @@
       </div>
     </section>
 
+    <!-- Weekly Meal Plan Results Section -->
+    <section id="mealPlanSection" class="meal-plan-container hidden">
+      <div class="results-header">
+        <div>
+          <span class="pill pill-accent">📅 7-Day Chef Plan</span>
+          <h2 class="results-title" id="mealPlanTitle">Your Weekly Meal Plan</h2>
+          <p class="results-subtitle" id="mealPlanOverview">A balanced week of meals utilizing your pantry staples.</p>
+        </div>
+        <div class="results-actions">
+          <button type="button" id="regenerateMealPlanBtn" class="btn btn-secondary">
+            🔄 New Plan
+          </button>
+          <button type="button" id="copyFullPlanBtn" class="btn btn-secondary">
+            📋 Copy Whole Plan
+          </button>
+          <button type="button" id="printMealPlanBtn" class="btn btn-secondary">
+            🖨️ Print Plan
+          </button>
+        </div>
+      </div>
+
+      <!-- Shared Shopping List for Whole Week -->
+      <div class="shared-grocery-card card" id="sharedGroceryCard">
+        <div class="shared-grocery-header">
+          <div class="shared-grocery-title-group">
+            <span class="grocery-icon">🛒</span>
+            <div>
+              <h3 class="shared-grocery-title">Consolidated Weekly Shopping List</h3>
+              <p class="shared-grocery-subtitle">All missing items needed across Monday – Sunday, grouped by aisle</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="copySharedShoppingBtn">
+            📋 Copy Shopping List
+          </button>
+        </div>
+        <div class="shared-grocery-content" id="sharedGroceryContent">
+          <!-- Dynamically grouped categories (Produce, Dairy, etc.) -->
+        </div>
+      </div>
+
+      <!-- 7 Days Grid -->
+      <div class="meal-plan-grid" id="mealPlanGrid">
+        <!-- Monday - Sunday cards injected by JS -->
+      </div>
+    </section>
+
   </main>
 
   <!-- Footer -->
@@ -271,6 +335,111 @@
       <p class="footer-subtext">Cook sustainably &bull; Reduce food waste &bull; Savor every meal</p>
     </div>
   </footer>
+
+  <!-- Favorites Modal -->
+  <div id="favoritesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="favoritesModalTitle">
+    <div class="modal-container card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">❤️</div>
+          <div>
+            <h3 id="favoritesModalTitle" class="modal-title">Saved Favorites</h3>
+            <p class="modal-subtitle">Your personal cookbook of AI-crafted recipes</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeFavoritesModalBtn" aria-label="Close favorites modal">&times;</button>
+      </div>
+
+      <div class="modal-toolbar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="favoritesSearchInput" class="favorites-search-input" placeholder="Search saved recipes by name, ingredient, etc...">
+        </div>
+        <span class="favorites-count-label" id="favoritesCountLabel">0 recipes saved</span>
+      </div>
+
+      <div class="modal-body" id="favoritesModalBody">
+        <!-- Empty State -->
+        <div class="favorites-empty-state" id="favoritesEmptyState">
+          <div class="empty-icon-wrapper">📖</div>
+          <h4 class="empty-title">No favorites saved yet</h4>
+          <p class="empty-desc">Generate some recipes and click the <strong>❤️ Save to Favorites</strong> button on any recipe card to store your favorite dishes here.</p>
+        </div>
+
+        <!-- Favorites Cards Grid -->
+        <div class="favorites-grid hidden" id="favoritesGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fridge Photo Scanner Modal -->
+  <div id="fridgeScanModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="fridgeScanModalTitle">
+    <div class="modal-container modal-container-sm card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge">📸</div>
+          <div>
+            <h3 id="fridgeScanModalTitle" class="modal-title">Fridge Photo Scanner</h3>
+            <p class="modal-subtitle">Gemini Vision detects your ingredients automatically</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeFridgeScanModalBtn" aria-label="Close scanner modal">&times;</button>
+      </div>
+
+      <div class="modal-body scan-modal-body" id="fridgeScanModalBody">
+        <!-- Image Preview & Scanning Overlay -->
+        <div class="photo-preview-wrap" id="photoPreviewWrap">
+          <img id="photoPreviewImg" class="photo-preview-img" alt="Uploaded fridge preview" src="">
+          <div class="photo-scan-laser" id="photoScanLaser"></div>
+        </div>
+
+        <!-- Scanning Status Indicator -->
+        <div class="scan-status-box" id="scanStatusBox">
+          <div class="scan-spinner"></div>
+          <h4 class="scan-status-title" id="scanStatusTitle">Analyzing your photo with Gemini...</h4>
+          <p class="scan-status-desc" id="scanStatusDesc">Inspecting shelves, produce, condiments and pantry items</p>
+        </div>
+
+        <!-- Detected Results -->
+        <div class="scan-results-box hidden" id="scanResultsBox">
+          <div class="scan-results-header">
+            <span class="scan-results-title">✨ Detected Ingredients (<span id="detectedCount">0</span>)</span>
+            <button type="button" class="btn-text-link" id="selectAllDetectedBtn">Select All</button>
+          </div>
+          <p class="scan-results-hint">Click any items to toggle selection before adding:</p>
+          <div class="detected-chips-list" id="detectedChipsList"></div>
+
+          <div class="scan-modal-actions">
+            <button type="button" id="addDetectedIngredientsBtn" class="btn btn-primary btn-md">
+              <span>➕ Add Selected to Kitchen</span>
+            </button>
+            <button type="button" id="retakePhotoBtn" class="btn btn-secondary btn-md">
+              <span>📸 Try Another Photo</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div class="scan-error-box hidden" id="scanErrorBox">
+          <div class="alert alert-error">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-body">
+              <h4 class="alert-title" id="scanErrorTitle">No ingredients detected</h4>
+              <p class="alert-message" id="scanErrorMessage">We couldn't clearly recognize any food items in this photo. Try taking a brighter, closer picture or add ingredients manually.</p>
+            </div>
+          </div>
+          <div class="scan-modal-actions" style="margin-top: 18px;">
+            <button type="button" id="tryAnotherPhotoBtn" class="btn btn-primary btn-md">
+              <span>📸 Try Another Photo</span>
+            </button>
+            <button type="button" id="cancelScanBtn" class="btn btn-ghost btn-md">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification (for copy actions, etc.) -->
   <div id="toastNotification" class="toast hidden" role="status" aria-live="polite">

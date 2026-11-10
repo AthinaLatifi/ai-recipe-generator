@@ -1,0 +1,75 @@
+# .github/workflows/deploy.yml
+# Automatically deploys the app to the production EC2 server on every push to main.
+# Requires these GitHub repository Secrets (Settings → Secrets → Actions):
+#   SSH_PRIVATE_KEY  – the private SSH key whose public key is on the server (~/.ssh/authorized_keys)
+#   SSH_HOST         – the public IP or hostname of the EC2 instance (or Elastic IP)
+#   SSH_USER         – the SSH login username (e.g. ubuntu, ec2-user)
+#   APP_DIR          – absolute path of the app directory on the server (e.g. /home/ubuntu/ai-recipe-generator)
+
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main   # trigger only on pushes to the main branch
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # 1. Check out the repository so the runner has the latest code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install the SSH private key on the GitHub Actions runner
+      - name: Install SSH key
+        uses: shimataro/ssh-action@v2  # a trusted, maintained action for SSH key setup
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: unnecessary   # we add the host fingerprint dynamically below
+          if_key_exists: replace
+
+      # 3. Add the server's fingerprint to known_hosts to avoid host-verification prompts
+      - name: Add server to known_hosts
+        run: |
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # 4. SSH into the server and run deployment commands
+      #    - Pull the latest code from GitHub
+      #    - Install / update Python dependencies inside the virtual environment
+      #    - Restart the app service (assumed to be managed by systemd under the name "recipe-app")
+      - name: Deploy application
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash -s <<'ENDSSH'
+            set -euo pipefail
+
+            echo "=== Pulling latest code ==="
+            cd "$APP_DIR"
+            git pull origin main
+
+            echo "=== Updating Python dependencies ==="
+            source venv/bin/activate
+            pip install --quiet -r requirements.txt
+
+            echo "=== Restarting application service ==="
+            sudo systemctl restart recipe-app
+
+            echo "=== Deployment complete ==="
+          ENDSSH
+
+      # 5. Confirm the service is running after the restart
+      - name: Verify service is active
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "sudo systemctl is-active recipe-app && echo 'Service is running OK'"
